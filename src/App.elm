@@ -3,7 +3,7 @@ module App exposing (..)
 import Html exposing (text, div)
 import Element exposing (Element, color, layers)
 import Collage exposing (Form, collage, group, rect, filled, move, circle, scale)
-import Color exposing (black, white, red)
+import Color exposing (rgba, black, white, red)
 import Time exposing (Time, inSeconds)
 import Keyboard
 import AnimationFrame
@@ -38,7 +38,7 @@ cfg =
     , paddleSpeed = 250
     , ballRadius = 5
     , ballInitialPos = ( 0, 0 )
-    , ballInitialVelocity = ( 100, -250 )
+    , ballInitialVelocity = ( 0, -300 )
     , brickSize = ( 40, 20 )
     , brickOffsetX = 61
     , brickOffsetY = 35
@@ -63,6 +63,13 @@ type alias Brick =
     }
 
 
+type GameState
+    = NotStarted
+    | Playing
+    | Won
+    | Lost
+
+
 type alias Model =
     { paddlePos : Position
     , leftDown : Bool
@@ -71,6 +78,7 @@ type alias Model =
     , ballVelocity : Velocity
     , bricks : List Brick
     , windowSize : Window.Size
+    , gameState : GameState
     }
 
 
@@ -88,52 +96,57 @@ paddleInitialPos =
     ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
 
 
+initialBricks : List Brick
+initialBricks =
+    [ b 0 1
+    , b 1 1
+    , b 2 1
+    , b 3 1
+    , b 4 1
+    , b 5 1
+    , b 6 1
+    , b 7 1
+    , b 8 1
+    , b 9 1
+    , b 10 1
+    , b 11 1
+    , b 0 2
+    , b 1 2
+    , b 2 2
+    , b 3 2
+    , b 4 2
+    , b 5 2
+    , b 6 2
+    , b 7 2
+    , b 8 2
+    , b 9 2
+    , b 10 2
+    , b 11 2
+    , b 0 3
+    , b 1 3
+    , b 2 3
+    , b 3 3
+    , b 4 3
+    , b 5 3
+    , b 6 3
+    , b 7 3
+    , b 8 3
+    , b 9 3
+    , b 10 3
+    , b 11 3
+    ]
+
+
 init : ( Model, Cmd Msg )
 init =
     ( { paddlePos = ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
       , leftDown = False
       , rightDown = False
       , ballPos = ( 0, 0 )
-      , ballVelocity = cfg.ballInitialVelocity
+      , ballVelocity = ( 0, 0 )
       , windowSize = Window.Size cfg.gameWidth cfg.gameHeight
-      , bricks =
-            [ b 0 1
-            , b 1 1
-            , b 2 1
-            , b 3 1
-            , b 4 1
-            , b 5 1
-            , b 6 1
-            , b 7 1
-            , b 8 1
-            , b 9 1
-            , b 10 1
-            , b 11 1
-            , b 0 2
-            , b 1 2
-            , b 2 2
-            , b 3 2
-            , b 4 2
-            , b 5 2
-            , b 6 2
-            , b 7 2
-            , b 8 2
-            , b 9 2
-            , b 10 2
-            , b 11 2
-            , b 0 3
-            , b 1 3
-            , b 2 3
-            , b 3 3
-            , b 4 3
-            , b 5 3
-            , b 6 3
-            , b 7 3
-            , b 8 3
-            , b 9 3
-            , b 10 3
-            , b 11 3
-            ]
+      , gameState = NotStarted
+      , bricks = initialBricks
       }
     , Task.perform (always NoOp) WindowSize Window.size
     )
@@ -141,6 +154,7 @@ init =
 
 type Msg
     = NoOp
+    | SpaceDown
     | LeftDown
     | LeftUp
     | RightDown
@@ -152,6 +166,9 @@ type Msg
 keyDownMsg : Keyboard.KeyCode -> Msg
 keyDownMsg keyCode =
     case keyCode of
+        32 ->
+            SpaceDown
+
         37 ->
             LeftDown
 
@@ -405,35 +422,52 @@ updateBallAndBricks dt model =
         }
 
 
+startNewGame : Model -> Model
+startNewGame model =
+    { model
+        | gameState = Playing
+        , paddlePos = paddleInitialPos
+        , ballPos = cfg.ballInitialPos
+        , ballVelocity = cfg.ballInitialVelocity
+        , bricks = initialBricks
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        LeftDown ->
-            ( { model | leftDown = True }, Cmd.none )
+    let
+        newModel =
+            case msg of
+                SpaceDown ->
+                    if model.gameState /= Playing then
+                        startNewGame model
+                    else
+                        model
 
-        LeftUp ->
-            ( { model | leftDown = False }, Cmd.none )
+                LeftDown ->
+                    { model | leftDown = True }
 
-        RightDown ->
-            ( { model | rightDown = True }, Cmd.none )
+                LeftUp ->
+                    { model | leftDown = False }
 
-        RightUp ->
-            ( { model | rightDown = False }, Cmd.none )
+                RightDown ->
+                    { model | rightDown = True }
 
-        Tick dt ->
-            let
-                newModel =
+                RightUp ->
+                    { model | rightDown = False }
+
+                Tick dt ->
                     model
                         |> updatePaddlePos dt
                         |> updateBallAndBricks dt
-            in
-                ( newModel, Cmd.none )
 
-        WindowSize size ->
-            ( { model | windowSize = size }, Cmd.none )
+                WindowSize size ->
+                    { model | windowSize = size }
 
-        NoOp ->
-            ( model, Cmd.none )
+                NoOp ->
+                    model
+    in
+        ( newModel, Cmd.none )
 
 
 background : Collage.Form
@@ -467,6 +501,11 @@ drawBrick brick =
             |> move brick.pos
 
 
+emptyForm : Form
+emptyForm =
+    rect 0 0 |> filled (rgba 0 0 0 0)
+
+
 displayFullScreen : Window.Size -> Form -> Element
 displayFullScreen { width, height } content =
     let
@@ -484,7 +523,10 @@ view model =
             drawPaddle model.paddlePos
 
         ball =
-            drawBall model.ballPos
+            if model.gameState == Playing then
+                drawBall model.ballPos
+            else
+                emptyForm
 
         bricks =
             List.filter (\brick -> not brick.broken) model.bricks
