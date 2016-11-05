@@ -9,6 +9,19 @@ import Keyboard
 import AnimationFrame
 
 
+cfg :
+    { ballInitialPos : Velocity
+    , ballInitialVelocity : Velocity
+    , ballRadius : Float
+    , gameHalfHeight : Float
+    , gameHalfWidth : Float
+    , gameWidth : Int
+    , paddleHeight : Float
+    , paddleSpeed : number
+    , paddleWidth : Float
+    , paddleYOffset : Float
+    , gameHeight : Int
+    }
 cfg =
     { gameWidth = 800
     , gameHeight = 600
@@ -19,6 +32,7 @@ cfg =
     , paddleYOffset = 50
     , paddleSpeed = 200
     , ballRadius = 5
+    , ballInitialPos = ( 0, 0 )
     , ballInitialVelocity = ( 70, -200 )
     }
 
@@ -174,8 +188,13 @@ updateBall dt model =
         touchingRightWall =
             isBallTouchingRect model.ballPos ( cfg.gameHalfWidth, 0 ) ( 0, toFloat cfg.gameHeight )
 
+        ballLost =
+            snd model.ballPos < -cfg.gameHalfHeight
+
         ( vx, vy ) =
-            if touchingPaddle || touchingCeiling then
+            if ballLost then
+                cfg.ballInitialVelocity
+            else if touchingPaddle || touchingCeiling then
                 ( fst model.ballVelocity, -(snd model.ballVelocity) )
             else if touchingLeftWall || touchingRightWall then
                 ( -(fst model.ballVelocity), snd model.ballVelocity )
@@ -183,7 +202,10 @@ updateBall dt model =
                 model.ballVelocity
 
         ( x, y ) =
-            model.ballPos
+            if ballLost then
+                cfg.ballInitialPos
+            else
+                model.ballPos
 
         newX =
             x + vx * inSeconds dt
