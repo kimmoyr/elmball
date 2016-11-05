@@ -7,6 +7,7 @@ import Color exposing (black, white, red)
 import Time exposing (Time, inSeconds)
 import Keyboard
 import AnimationFrame
+import Debug
 
 
 cfg :
@@ -80,6 +81,7 @@ b x y =
         False
 
 
+paddleInitialPos : ( number, Float )
 paddleInitialPos =
     ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
 
@@ -312,6 +314,24 @@ hitBricks ballPos =
     List.map (hitBrick ballPos)
 
 
+updateBallVelocityOnPaddleHit : Position -> Position -> Velocity -> Velocity
+updateBallVelocityOnPaddleHit ( paddleX, paddleY ) ( ballX, ballY ) ( vx, vy ) =
+    let
+        speed =
+            sqrt (vx ^ 2 + vy ^ 2)
+
+        posX =
+            (ballX - paddleX) / (cfg.paddleWidth / 2)
+
+        newVx =
+            0.75 * posX * speed
+
+        newVy =
+            sqrt (speed ^ 2 - newVx ^ 2)
+    in
+        ( newVx, newVy )
+
+
 updateBallAndBricks : Time -> Model -> Model
 updateBallAndBricks dt model =
     let
@@ -345,7 +365,9 @@ updateBallAndBricks dt model =
                 cfg.ballInitialVelocity
             else if not (List.isEmpty brickCollisionSides) then
                 List.foldl updateVelocity model.ballVelocity brickCollisionSides
-            else if touchingPaddle || touchingCeiling then
+            else if touchingPaddle then
+                updateBallVelocityOnPaddleHit model.paddlePos model.ballPos model.ballVelocity
+            else if touchingCeiling then
                 ( fst model.ballVelocity, -(snd model.ballVelocity) )
             else if touchingLeftWall || touchingRightWall then
                 ( -(fst model.ballVelocity), snd model.ballVelocity )
