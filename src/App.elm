@@ -165,9 +165,20 @@ updateBall dt model =
         touchingPaddle =
             isBallTouchingRect model.ballPos model.paddlePos ( cfg.paddleWidth, cfg.paddleHeight )
 
+        touchingCeiling =
+            isBallTouchingRect model.ballPos ( 0, cfg.gameHalfHeight ) ( toFloat cfg.gameWidth, 0 )
+
+        touchingLeftWall =
+            isBallTouchingRect model.ballPos ( -cfg.gameHalfWidth, 0 ) ( 0, toFloat cfg.gameHeight )
+
+        touchingRightWall =
+            isBallTouchingRect model.ballPos ( cfg.gameHalfWidth, 0 ) ( 0, toFloat cfg.gameHeight )
+
         ( vx, vy ) =
-            if touchingPaddle then
+            if touchingPaddle || touchingCeiling then
                 ( fst model.ballVelocity, -(snd model.ballVelocity) )
+            else if touchingLeftWall || touchingRightWall then
+                ( -(fst model.ballVelocity), snd model.ballVelocity )
             else
                 model.ballVelocity
 
