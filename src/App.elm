@@ -80,6 +80,10 @@ b x y =
         False
 
 
+paddleInitialPos =
+    ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
+
+
 init : ( Model, Cmd Msg )
 init =
     ( { paddlePos = ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
@@ -354,6 +358,12 @@ updateBallAndBricks dt model =
             else
                 model.ballPos
 
+        newPaddlePos =
+            if ballLost then
+                paddleInitialPos
+            else
+                model.paddlePos
+
         newX =
             x + vx * inSeconds dt
 
@@ -364,6 +374,7 @@ updateBallAndBricks dt model =
             | ballPos = ( newX, newY )
             , ballVelocity = ( vx, vy )
             , bricks = newBricks
+            , paddlePos = newPaddlePos
         }
 
 
