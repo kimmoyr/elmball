@@ -3,7 +3,7 @@ module App exposing (..)
 import Html exposing (text, div)
 import Element exposing (Element, color, layers)
 import Collage exposing (collage, rect, filled, move, circle)
-import Color exposing (black, white)
+import Color exposing (black, white, red)
 import Time exposing (Time, inSeconds)
 import Keyboard
 import AnimationFrame
@@ -21,6 +21,9 @@ cfg :
     , paddleWidth : Float
     , paddleYOffset : Float
     , gameHeight : Int
+    , brickSize : Size
+    , brickOffsetX : Float
+    , brickOffsetY : Float
     }
 cfg =
     { gameWidth = 800
@@ -33,7 +36,10 @@ cfg =
     , paddleSpeed = 200
     , ballRadius = 5
     , ballInitialPos = ( 0, 0 )
-    , ballInitialVelocity = ( 70, -200 )
+    , ballInitialVelocity = ( 100, -250 )
+    , brickSize = ( 40, 20 )
+    , brickOffsetX = 60
+    , brickOffsetY = 35
     }
 
 
@@ -49,13 +55,29 @@ type alias Size =
     ( Float, Float )
 
 
+type alias Brick =
+    { pos : Position
+    , broken : Bool
+    }
+
+
 type alias Model =
     { paddlePos : Position
     , leftDown : Bool
     , rightDown : Bool
     , ballPos : Position
     , ballVelocity : Velocity
+    , bricks : List Brick
     }
+
+
+b : Int -> Int -> Brick
+b x y =
+    Brick
+        ( -cfg.gameHalfWidth + (toFloat x + 1) * cfg.brickOffsetX
+        , cfg.gameHalfHeight - (toFloat y + 1) * cfg.brickOffsetY
+        )
+        False
 
 
 init : ( Model, Cmd Msg )
@@ -65,6 +87,44 @@ init =
       , rightDown = False
       , ballPos = ( 0, 0 )
       , ballVelocity = cfg.ballInitialVelocity
+      , bricks =
+            [ b 0 1
+            , b 1 1
+            , b 2 1
+            , b 3 1
+            , b 4 1
+            , b 5 1
+            , b 6 1
+            , b 7 1
+            , b 8 1
+            , b 9 1
+            , b 10 1
+            , b 11 1
+            , b 0 2
+            , b 1 2
+            , b 2 2
+            , b 3 2
+            , b 4 2
+            , b 5 2
+            , b 6 2
+            , b 7 2
+            , b 8 2
+            , b 9 2
+            , b 10 2
+            , b 11 2
+            , b 0 3
+            , b 1 3
+            , b 2 3
+            , b 3 3
+            , b 4 3
+            , b 5 3
+            , b 6 3
+            , b 7 3
+            , b 8 3
+            , b 9 3
+            , b 10 3
+            , b 11 3
+            ]
       }
     , Cmd.none
     )
@@ -114,8 +174,16 @@ subscriptions model =
         ]
 
 
-isBallTouchingRect : Position -> Position -> Size -> Bool
-isBallTouchingRect ( ballX, ballY ) ( rectX, rectY ) ( w, h ) =
+type CollisionSide
+    = NoCollision
+    | Left
+    | Right
+    | Top
+    | Bottom
+
+
+ballRectCollisionSide : Position -> Position -> Size -> CollisionSide
+ballRectCollisionSide ( ballX, ballY ) ( rectX, rectY ) ( w, h ) =
     let
         r =
             cfg.ballRadius
@@ -143,8 +211,50 @@ isBallTouchingRect ( ballX, ballY ) ( rectX, rectY ) ( w, h ) =
 
         distY =
             abs (ballY - closestY)
+
+        hit =
+            distX ^ 2 + distY ^ 2 <= r ^ 2
     in
-        distX ^ 2 + distY ^ 2 <= r ^ 2
+        if hit then
+            if ballY <= rectBottom then
+                Bottom
+            else if ballY >= rectTop then
+                Top
+            else if ballX <= rectLeft then
+                Left
+            else
+                Right
+        else
+            NoCollision
+
+
+updateVelocity : CollisionSide -> Velocity -> Velocity
+updateVelocity collision ( vx, vy ) =
+    case collision of
+        Top ->
+            ( vx, -vy )
+
+        Bottom ->
+            ( vx, -vy )
+
+        Left ->
+            ( -vx, vy )
+
+        Right ->
+            ( -vx, vy )
+
+        NoCollision ->
+            ( vx, vy )
+
+
+isBallTouchingRect : Position -> Position -> Size -> Bool
+isBallTouchingRect ballPos rectPos rectSize =
+    case ballRectCollisionSide ballPos rectPos rectSize of
+        NoCollision ->
+            False
+
+        _ ->
+            True
 
 
 updatePaddlePos : Time -> Model -> Model
@@ -173,8 +283,33 @@ updatePaddlePos dt model =
         { model | paddlePos = ( newPaddleX, snd model.paddlePos ) }
 
 
-updateBall : Time -> Model -> Model
-updateBall dt model =
+hitBrick : Position -> Brick -> ( Brick, CollisionSide )
+hitBrick ballPos brick =
+    let
+        collisionSide =
+            if brick.broken then
+                NoCollision
+            else
+                ballRectCollisionSide ballPos brick.pos cfg.brickSize
+
+        newBrick =
+            case collisionSide of
+                NoCollision ->
+                    brick
+
+                _ ->
+                    { brick | broken = True }
+    in
+        ( newBrick, collisionSide )
+
+
+hitBricks : Position -> List Brick -> List ( Brick, CollisionSide )
+hitBricks ballPos =
+    List.map (hitBrick ballPos)
+
+
+updateBallAndBricks : Time -> Model -> Model
+updateBallAndBricks dt model =
     let
         touchingPaddle =
             isBallTouchingRect model.ballPos model.paddlePos ( cfg.paddleWidth, cfg.paddleHeight )
@@ -191,9 +326,21 @@ updateBall dt model =
         ballLost =
             snd model.ballPos < -cfg.gameHalfHeight
 
+        brickHits =
+            hitBricks model.ballPos model.bricks
+
+        newBricks =
+            List.map fst brickHits
+
+        brickCollisionSides =
+            List.map snd brickHits
+                |> List.filter (\side -> side /= NoCollision)
+
         ( vx, vy ) =
             if ballLost then
                 cfg.ballInitialVelocity
+            else if not (List.isEmpty brickCollisionSides) then
+                List.foldl updateVelocity model.ballVelocity brickCollisionSides
             else if touchingPaddle || touchingCeiling then
                 ( fst model.ballVelocity, -(snd model.ballVelocity) )
             else if touchingLeftWall || touchingRightWall then
@@ -216,6 +363,7 @@ updateBall dt model =
         { model
             | ballPos = ( newX, newY )
             , ballVelocity = ( vx, vy )
+            , bricks = newBricks
         }
 
 
@@ -239,7 +387,7 @@ update msg model =
                 newModel =
                     model
                         |> updatePaddlePos dt
-                        |> updateBall dt
+                        |> updateBallAndBricks dt
             in
                 ( newModel, Cmd.none )
 
@@ -267,6 +415,17 @@ drawBall pos =
         |> move pos
 
 
+drawBrick : Brick -> Collage.Form
+drawBrick brick =
+    let
+        ( w, h ) =
+            cfg.brickSize
+    in
+        rect w h
+            |> filled red
+            |> move brick.pos
+
+
 view : Model -> Html.Html Msg
 view model =
     let
@@ -276,8 +435,12 @@ view model =
         ball =
             drawBall model.ballPos
 
+        bricks =
+            List.filter (\brick -> not brick.broken) model.bricks
+                |> List.map drawBrick
+
         elements =
-            [ background, paddle, ball ]
+            [ background, paddle, ball ] ++ bricks
     in
         div []
             [ collage cfg.gameWidth cfg.gameHeight elements |> Element.toHtml
