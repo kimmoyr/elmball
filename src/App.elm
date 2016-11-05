@@ -1,9 +1,10 @@
 module App exposing (..)
 
 import Html exposing (text, div)
-import Element exposing (Element, color, layers)
-import Collage exposing (Form, collage, group, rect, filled, move, circle, scale)
+import Element exposing (Element, color, layers, centered)
+import Collage exposing (Form, toForm, collage, group, rect, filled, move, circle, scale)
 import Color exposing (rgba, black, white, red)
+import Text
 import Time exposing (Time, inSeconds)
 import Keyboard
 import AnimationFrame
@@ -26,6 +27,7 @@ cfg :
     , brickSize : Size
     , brickOffsetX : Float
     , brickOffsetY : Float
+    , lives : Int
     }
 cfg =
     { gameWidth = 800
@@ -42,6 +44,7 @@ cfg =
     , brickSize = ( 40, 20 )
     , brickOffsetX = 61
     , brickOffsetY = 35
+    , lives = 3
     }
 
 
@@ -79,6 +82,7 @@ type alias Model =
     , bricks : List Brick
     , windowSize : Window.Size
     , gameState : GameState
+    , lives : Int
     }
 
 
@@ -146,6 +150,7 @@ init =
       , ballVelocity = ( 0, 0 )
       , windowSize = Window.Size cfg.gameWidth cfg.gameHeight
       , gameState = NotStarted
+      , lives = cfg.lives
       , bricks = initialBricks
       }
     , Task.perform (always NoOp) WindowSize Window.size
@@ -277,12 +282,7 @@ updateVelocity collision ( vx, vy ) =
 
 isBallTouchingRect : Position -> Position -> Size -> Bool
 isBallTouchingRect ballPos rectPos rectSize =
-    case ballRectCollisionSide ballPos rectPos rectSize of
-        NoCollision ->
-            False
-
-        _ ->
-            True
+    ballRectCollisionSide ballPos rectPos rectSize /= NoCollision
 
 
 updatePaddlePos : Time -> Model -> Model
@@ -402,11 +402,11 @@ updateBallAndBricks dt model =
             else
                 model.ballPos
 
-        newPaddlePos =
+        ( newPaddlePos, newLives ) =
             if ballLost then
-                paddleInitialPos
+                ( paddleInitialPos, model.lives - 1 )
             else
-                model.paddlePos
+                ( model.paddlePos, model.lives )
 
         newX =
             x + vx * inSeconds dt
@@ -419,6 +419,7 @@ updateBallAndBricks dt model =
             , ballVelocity = ( vx, vy )
             , bricks = newBricks
             , paddlePos = newPaddlePos
+            , lives = newLives
         }
 
 
@@ -426,11 +427,29 @@ startNewGame : Model -> Model
 startNewGame model =
     { model
         | gameState = Playing
+        , lives = 3
         , paddlePos = paddleInitialPos
         , ballPos = cfg.ballInitialPos
         , ballVelocity = cfg.ballInitialVelocity
         , bricks = initialBricks
     }
+
+
+updateGameState : Model -> Model
+updateGameState model =
+    let
+        newState =
+            if model.gameState == Playing then
+                if List.all .broken model.bricks then
+                    Won
+                else if model.lives == 0 then
+                    Lost
+                else
+                    Playing
+            else
+                model.gameState
+    in
+        { model | gameState = newState }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -460,6 +479,7 @@ update msg model =
                     model
                         |> updatePaddlePos dt
                         |> updateBallAndBricks dt
+                        |> updateGameState
 
                 WindowSize size ->
                     { model | windowSize = size }
@@ -470,27 +490,27 @@ update msg model =
         ( newModel, Cmd.none )
 
 
-background : Collage.Form
+background : Form
 background =
     rect (toFloat cfg.gameWidth) (toFloat cfg.gameHeight)
         |> filled black
 
 
-drawPaddle : Position -> Collage.Form
+drawPaddle : Position -> Form
 drawPaddle pos =
     rect cfg.paddleWidth cfg.paddleHeight
         |> filled white
         |> move pos
 
 
-drawBall : Position -> Collage.Form
+drawBall : Position -> Form
 drawBall pos =
     circle cfg.ballRadius
         |> filled white
         |> move pos
 
 
-drawBrick : Brick -> Collage.Form
+drawBrick : Brick -> Form
 drawBrick brick =
     let
         ( w, h ) =
@@ -499,6 +519,31 @@ drawBrick brick =
         rect w h
             |> filled red
             |> move brick.pos
+
+
+txt : String -> Form
+txt string =
+    Text.fromString string
+        |> Text.color white
+        |> Text.height 30
+        |> centered
+        |> toForm
+
+
+drawStateText : GameState -> Form
+drawStateText gameState =
+    case gameState of
+        NotStarted ->
+            txt "Press SPACE to start"
+
+        Playing ->
+            txt ""
+
+        Won ->
+            txt "You Win!"
+
+        Lost ->
+            txt "Game Over!"
 
 
 emptyForm : Form
@@ -532,8 +577,11 @@ view model =
             List.filter (\brick -> not brick.broken) model.bricks
                 |> List.map drawBrick
 
+        stateText =
+            drawStateText model.gameState
+
         elements =
-            [ background, paddle, ball ] ++ bricks
+            [ background, paddle, ball, stateText ] ++ bricks
     in
         div []
             [ displayFullScreen model.windowSize (group elements) |> Element.toHtml
