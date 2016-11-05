@@ -2,7 +2,7 @@ module App exposing (..)
 
 import Html exposing (text, div)
 import Element exposing (Element, color, layers)
-import Collage exposing (collage, rect, filled, move)
+import Collage exposing (collage, rect, filled, move, circle)
 import Color exposing (black, white)
 import Time exposing (Time, inSeconds)
 import Keyboard
@@ -18,14 +18,42 @@ cfg =
     , paddleHeight = 15
     , paddleYOffset = 50
     , paddleSpeed = 200
+    , ballRadius = 5
+    , ballInitialVelocity = ( 70, -200 )
     }
+
+
+type alias Position =
+    ( Float, Float )
+
+
+type alias Velocity =
+    ( Float, Float )
+
+
+type alias Size =
+    ( Float, Float )
 
 
 type alias Model =
-    { paddleX : Float
+    { paddlePos : Position
     , leftDown : Bool
     , rightDown : Bool
+    , ballPos : Position
+    , ballVelocity : Velocity
     }
+
+
+init : ( Model, Cmd Msg )
+init =
+    ( { paddlePos = ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
+      , leftDown = False
+      , rightDown = False
+      , ballPos = ( 0, 0 )
+      , ballVelocity = cfg.ballInitialVelocity
+      }
+    , Cmd.none
+    )
 
 
 type Msg
@@ -72,6 +100,39 @@ subscriptions model =
         ]
 
 
+isBallTouchingRect : Position -> Position -> Size -> Bool
+isBallTouchingRect ( ballX, ballY ) ( rectX, rectY ) ( w, h ) =
+    let
+        r =
+            cfg.ballRadius
+
+        rectLeft =
+            rectX - w / 2
+
+        rectRight =
+            rectX + w / 2
+
+        rectTop =
+            rectY + h / 2
+
+        rectBottom =
+            rectY - h / 2
+
+        closestX =
+            clamp rectLeft rectRight ballX
+
+        closestY =
+            clamp rectBottom rectTop ballY
+
+        distX =
+            abs (ballX - closestX)
+
+        distY =
+            abs (ballY - closestY)
+    in
+        distX ^ 2 + distY ^ 2 <= r ^ 2
+
+
 updatePaddlePos : Time -> Model -> Model
 updatePaddlePos dt model =
     let
@@ -90,12 +151,39 @@ updatePaddlePos dt model =
             cfg.gameHalfWidth - cfg.paddleWidth / 2
 
         newPaddleX =
-            model.paddleX
+            fst model.paddlePos
                 + speed
                 * inSeconds dt
                 |> clamp leftLimit rightLimit
     in
-        { model | paddleX = newPaddleX }
+        { model | paddlePos = ( newPaddleX, snd model.paddlePos ) }
+
+
+updateBall : Time -> Model -> Model
+updateBall dt model =
+    let
+        touchingPaddle =
+            isBallTouchingRect model.ballPos model.paddlePos ( cfg.paddleWidth, cfg.paddleHeight )
+
+        ( vx, vy ) =
+            if touchingPaddle then
+                ( fst model.ballVelocity, -(snd model.ballVelocity) )
+            else
+                model.ballVelocity
+
+        ( x, y ) =
+            model.ballPos
+
+        newX =
+            x + vx * inSeconds dt
+
+        newY =
+            y + vy * inSeconds dt
+    in
+        { model
+            | ballPos = ( newX, newY )
+            , ballVelocity = ( vx, vy )
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -114,40 +202,50 @@ update msg model =
             ( { model | rightDown = False }, Cmd.none )
 
         Tick dt ->
-            ( updatePaddlePos dt model, Cmd.none )
+            let
+                newModel =
+                    model
+                        |> updatePaddlePos dt
+                        |> updateBall dt
+            in
+                ( newModel, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( { paddleX = 0
-      , leftDown = False
-      , rightDown = False
-      }
-    , Cmd.none
-    )
-
-
 background : Collage.Form
 background =
-    rect (toFloat cfg.gameWidth) (toFloat cfg.gameHeight) |> filled black
+    rect (toFloat cfg.gameWidth) (toFloat cfg.gameHeight)
+        |> filled black
 
 
-drawPaddle : Float -> Collage.Form
-drawPaddle x =
+drawPaddle : Position -> Collage.Form
+drawPaddle pos =
     rect cfg.paddleWidth cfg.paddleHeight
         |> filled white
-        |> move ( x, -cfg.gameHalfHeight + cfg.paddleYOffset )
+        |> move pos
+
+
+drawBall : Position -> Collage.Form
+drawBall pos =
+    circle cfg.ballRadius
+        |> filled white
+        |> move pos
 
 
 view : Model -> Html.Html Msg
 view model =
     let
         paddle =
-            drawPaddle model.paddleX
+            drawPaddle model.paddlePos
+
+        ball =
+            drawBall model.ballPos
+
+        elements =
+            [ background, paddle, ball ]
     in
         div []
-            [ collage cfg.gameWidth cfg.gameHeight [ background, paddle ] |> Element.toHtml
+            [ collage cfg.gameWidth cfg.gameHeight elements |> Element.toHtml
             ]
