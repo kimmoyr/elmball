@@ -113,8 +113,8 @@ initialBricks =
     (brickRow 3 Color.lightRed)
         ++ (brickRow 4 Color.lightOrange)
         ++ (brickRow 5 Color.lightYellow)
-        ++ (brickRow 6 Color.lightBlue)
-        ++ (brickRow 7 Color.lightGreen)
+        ++ (brickRow 6 Color.lightGreen)
+        ++ (brickRow 7 Color.lightBlue)
 
 
 init : ( Model, Cmd Msg )
