@@ -2,7 +2,7 @@ module App exposing (..)
 
 import Html exposing (text, div)
 import Element exposing (Element, color, layers, centered)
-import Collage exposing (Form, toForm, collage, group, rect, filled, move, circle, scale)
+import Collage exposing (Form, toForm, collage, group, rect, filled, outlined, defaultLine, move, circle, scale)
 import Color exposing (rgba, black, white, red)
 import Text
 import Time exposing (Time, inSeconds)
@@ -10,6 +10,7 @@ import Keyboard
 import AnimationFrame
 import Window
 import Task
+import List.Extra
 
 
 cfg :
@@ -40,10 +41,10 @@ cfg =
     , paddleSpeed = 250
     , ballRadius = 5
     , ballInitialPos = ( 0, 0 )
-    , ballInitialVelocity = ( 0, -300 )
-    , brickSize = ( 40, 20 )
-    , brickOffsetX = 61
-    , brickOffsetY = 35
+    , ballInitialVelocity = ( 5, -300 )
+    , brickSize = ( 50, 20 )
+    , brickOffsetX = 50
+    , brickOffsetY = 20
     , lives = 3
     }
 
@@ -89,8 +90,8 @@ type alias Model =
 b : Int -> Int -> Brick
 b x y =
     Brick
-        ( -cfg.gameHalfWidth + (toFloat x + 1) * cfg.brickOffsetX
-        , cfg.gameHalfHeight - (toFloat y + 1) * cfg.brickOffsetY
+        ( -cfg.gameHalfWidth + (toFloat x) * cfg.brickOffsetX + (fst cfg.brickSize) / 2
+        , cfg.gameHalfHeight - (toFloat y) * cfg.brickOffsetY - (snd cfg.brickSize) / 2
         )
         False
 
@@ -100,45 +101,18 @@ paddleInitialPos =
     ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
 
 
+brickRow : Int -> List Brick
+brickRow row =
+    List.map (\column -> b column row) [0..15]
+
+
 initialBricks : List Brick
 initialBricks =
-    [ b 0 1
-    , b 1 1
-    , b 2 1
-    , b 3 1
-    , b 4 1
-    , b 5 1
-    , b 6 1
-    , b 7 1
-    , b 8 1
-    , b 9 1
-    , b 10 1
-    , b 11 1
-    , b 0 2
-    , b 1 2
-    , b 2 2
-    , b 3 2
-    , b 4 2
-    , b 5 2
-    , b 6 2
-    , b 7 2
-    , b 8 2
-    , b 9 2
-    , b 10 2
-    , b 11 2
-    , b 0 3
-    , b 1 3
-    , b 2 3
-    , b 3 3
-    , b 4 3
-    , b 5 3
-    , b 6 3
-    , b 7 3
-    , b 8 3
-    , b 9 3
-    , b 10 3
-    , b 11 3
-    ]
+    (brickRow 3)
+        ++ (brickRow 4)
+        ++ (brickRow 5)
+        ++ (brickRow 6)
+        ++ (brickRow 7)
 
 
 init : ( Model, Cmd Msg )
@@ -213,6 +187,25 @@ type CollisionSide
     | Right
     | Top
     | Bottom
+
+
+collisionSideToInt : CollisionSide -> number
+collisionSideToInt side =
+    case side of
+        NoCollision ->
+            0
+
+        Left ->
+            1
+
+        Right ->
+            2
+
+        Top ->
+            3
+
+        Bottom ->
+            4
 
 
 ballRectCollisionSide : Position -> Position -> Size -> CollisionSide
@@ -381,6 +374,7 @@ updateBallAndBricks dt model =
         brickCollisionSides =
             List.map snd brickHits
                 |> List.filter (\side -> side /= NoCollision)
+                |> List.Extra.uniqueBy collisionSideToInt
 
         ( vx, vy ) =
             if ballLost then
@@ -515,10 +509,18 @@ drawBrick brick =
     let
         ( w, h ) =
             cfg.brickSize
+
+        fill =
+            rect w h
+                |> filled red
+                |> move brick.pos
+
+        outline =
+            rect w h
+                |> outlined defaultLine
+                |> move brick.pos
     in
-        rect w h
-            |> filled red
-            |> move brick.pos
+        group [ fill, outline ]
 
 
 txt : String -> Form
