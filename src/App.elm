@@ -1,7 +1,7 @@
 module App exposing (..)
 
 import Html exposing (text, div)
-import Element exposing (Element, color, layers, centered)
+import Element exposing (Element, color, layers, centered, leftAligned)
 import Collage exposing (Form, toForm, collage, group, rect, filled, outlined, defaultLine, move, circle, scale)
 import Color exposing (rgba, black, white, red)
 import Text
@@ -516,7 +516,7 @@ drawBrick brick =
                 |> move brick.pos
 
         outline =
-            rect w h
+            rect (w - 1) (h - 1)
                 |> outlined defaultLine
                 |> move brick.pos
     in
@@ -530,6 +530,17 @@ txt string =
         |> Text.height 30
         |> centered
         |> toForm
+
+
+drawLivesText : Int -> Form
+drawLivesText lives =
+    toString lives
+        |> Text.fromString
+        |> Text.color white
+        |> Text.height 15
+        |> leftAligned
+        |> toForm
+        |> move ( -cfg.gameHalfWidth + 20, -cfg.gameHalfHeight + 20 )
 
 
 drawStateText : GameState -> Form
@@ -582,8 +593,11 @@ view model =
         stateText =
             drawStateText model.gameState
 
+        livesText =
+            drawLivesText model.lives
+
         elements =
-            [ background, paddle, ball, stateText ] ++ bricks
+            [ background, paddle, ball, stateText, livesText ] ++ bricks
     in
         div []
             [ displayFullScreen model.windowSize (group elements) |> Element.toHtml
