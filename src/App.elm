@@ -444,8 +444,14 @@ updateGameState model =
                     Playing
             else
                 model.gameState
+
+        newBallVelocity =
+            if newState /= Playing then
+                ( 0, 0 )
+            else
+                model.ballVelocity
     in
-        { model | gameState = newState }
+        { model | gameState = newState, ballVelocity = newBallVelocity }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
