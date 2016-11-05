@@ -2,12 +2,13 @@ module App exposing (..)
 
 import Html exposing (text, div)
 import Element exposing (Element, color, layers)
-import Collage exposing (collage, rect, filled, move, circle)
+import Collage exposing (Form, collage, group, rect, filled, move, circle, scale)
 import Color exposing (black, white, red)
 import Time exposing (Time, inSeconds)
 import Keyboard
 import AnimationFrame
-import Debug
+import Window
+import Task
 
 
 cfg :
@@ -34,7 +35,7 @@ cfg =
     , paddleWidth = 100
     , paddleHeight = 15
     , paddleYOffset = 50
-    , paddleSpeed = 200
+    , paddleSpeed = 250
     , ballRadius = 5
     , ballInitialPos = ( 0, 0 )
     , ballInitialVelocity = ( 100, -250 )
@@ -69,6 +70,7 @@ type alias Model =
     , ballPos : Position
     , ballVelocity : Velocity
     , bricks : List Brick
+    , windowSize : Window.Size
     }
 
 
@@ -93,6 +95,7 @@ init =
       , rightDown = False
       , ballPos = ( 0, 0 )
       , ballVelocity = cfg.ballInitialVelocity
+      , windowSize = Window.Size cfg.gameWidth cfg.gameHeight
       , bricks =
             [ b 0 1
             , b 1 1
@@ -132,7 +135,7 @@ init =
             , b 11 3
             ]
       }
-    , Cmd.none
+    , Task.perform (always NoOp) WindowSize Window.size
     )
 
 
@@ -143,6 +146,7 @@ type Msg
     | RightDown
     | RightUp
     | Tick Time
+    | WindowSize Window.Size
 
 
 keyDownMsg : Keyboard.KeyCode -> Msg
@@ -177,6 +181,7 @@ subscriptions model =
         [ Keyboard.downs keyDownMsg
         , Keyboard.ups keyUpMsg
         , AnimationFrame.diffs Tick
+        , Window.resizes WindowSize
         ]
 
 
@@ -424,6 +429,9 @@ update msg model =
             in
                 ( newModel, Cmd.none )
 
+        WindowSize size ->
+            ( { model | windowSize = size }, Cmd.none )
+
         NoOp ->
             ( model, Cmd.none )
 
@@ -459,6 +467,16 @@ drawBrick brick =
             |> move brick.pos
 
 
+displayFullScreen : Window.Size -> Form -> Element
+displayFullScreen { width, height } content =
+    let
+        gameScale =
+            min (toFloat width / toFloat cfg.gameWidth)
+                (toFloat height / toFloat cfg.gameHeight)
+    in
+        collage width height [ content |> scale gameScale ]
+
+
 view : Model -> Html.Html Msg
 view model =
     let
@@ -476,5 +494,5 @@ view model =
             [ background, paddle, ball ] ++ bricks
     in
         div []
-            [ collage cfg.gameWidth cfg.gameHeight elements |> Element.toHtml
+            [ displayFullScreen model.windowSize (group elements) |> Element.toHtml
             ]
