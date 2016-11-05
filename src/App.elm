@@ -40,7 +40,7 @@ cfg =
     , ballInitialPos = ( 0, 0 )
     , ballInitialVelocity = ( 100, -250 )
     , brickSize = ( 40, 20 )
-    , brickOffsetX = 60
+    , brickOffsetX = 61
     , brickOffsetY = 35
     }
 
