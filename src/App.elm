@@ -3,7 +3,7 @@ module App exposing (..)
 import Html exposing (text, div)
 import Element exposing (Element, color, layers, centered, leftAligned)
 import Collage exposing (Form, toForm, collage, group, rect, filled, outlined, defaultLine, move, circle, scale)
-import Color exposing (rgba, black, white, red)
+import Color exposing (Color, rgba, black, white)
 import Text
 import Time exposing (Time, inSeconds)
 import Keyboard
@@ -63,6 +63,7 @@ type alias Size =
 
 type alias Brick =
     { pos : Position
+    , color : Color
     , broken : Bool
     }
 
@@ -87,12 +88,13 @@ type alias Model =
     }
 
 
-b : Int -> Int -> Brick
-b x y =
+b : Int -> Int -> Color -> Brick
+b x y color =
     Brick
         ( -cfg.gameHalfWidth + (toFloat x) * cfg.brickOffsetX + (fst cfg.brickSize) / 2
         , cfg.gameHalfHeight - (toFloat y) * cfg.brickOffsetY - (snd cfg.brickSize) / 2
         )
+        color
         False
 
 
@@ -101,18 +103,18 @@ paddleInitialPos =
     ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
 
 
-brickRow : Int -> List Brick
-brickRow row =
-    List.map (\column -> b column row) [0..15]
+brickRow : Int -> Color -> List Brick
+brickRow row color =
+    List.map (\column -> b column row color) [0..15]
 
 
 initialBricks : List Brick
 initialBricks =
-    (brickRow 3)
-        ++ (brickRow 4)
-        ++ (brickRow 5)
-        ++ (brickRow 6)
-        ++ (brickRow 7)
+    (brickRow 3 Color.lightRed)
+        ++ (brickRow 4 Color.lightOrange)
+        ++ (brickRow 5 Color.lightYellow)
+        ++ (brickRow 6 Color.lightBlue)
+        ++ (brickRow 7 Color.lightGreen)
 
 
 init : ( Model, Cmd Msg )
@@ -512,7 +514,7 @@ drawBrick brick =
 
         fill =
             rect w h
-                |> filled red
+                |> filled brick.color
                 |> move brick.pos
 
         outline =
