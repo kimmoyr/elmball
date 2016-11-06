@@ -358,13 +358,13 @@ updateBallAndBricks dt model =
             isBallTouchingRect model.ballPos model.paddlePos ( cfg.paddleWidth, cfg.paddleHeight )
 
         touchingCeiling =
-            isBallTouchingRect model.ballPos ( 0, cfg.gameHalfHeight ) ( toFloat cfg.gameWidth, 0 )
+            (snd model.ballPos) + cfg.ballRadius / 2 >= cfg.gameHalfHeight
 
         touchingLeftWall =
-            isBallTouchingRect model.ballPos ( -cfg.gameHalfWidth, 0 ) ( 0, toFloat cfg.gameHeight )
+            (fst model.ballPos) - cfg.ballRadius / 2 <= -cfg.gameHalfWidth
 
         touchingRightWall =
-            isBallTouchingRect model.ballPos ( cfg.gameHalfWidth, 0 ) ( 0, toFloat cfg.gameHeight )
+            (fst model.ballPos) + cfg.ballRadius / 2 >= cfg.gameHalfWidth
 
         ballLost =
             snd model.ballPos < -cfg.gameHalfHeight
@@ -380,6 +380,9 @@ updateBallAndBricks dt model =
                 |> List.filter (\side -> side /= NoCollision)
                 |> List.Extra.uniqueBy collisionSideToInt
 
+        ( oldVx, oldVy ) =
+            model.ballVelocity
+
         ( vx, vy ) =
             if ballLost then
                 cfg.ballInitialVelocity
@@ -388,9 +391,11 @@ updateBallAndBricks dt model =
             else if touchingPaddle then
                 updateBallVelocityOnPaddleHit model.paddlePos model.ballPos model.ballVelocity
             else if touchingCeiling then
-                ( fst model.ballVelocity, -(snd model.ballVelocity) )
-            else if touchingLeftWall || touchingRightWall then
-                ( -(fst model.ballVelocity), snd model.ballVelocity )
+                ( oldVx, -(abs oldVy) )
+            else if touchingLeftWall then
+                ( abs oldVx, oldVy )
+            else if touchingRightWall then
+                ( -(abs oldVx), oldVy )
             else
                 model.ballVelocity
 
