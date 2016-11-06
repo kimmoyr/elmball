@@ -38,7 +38,7 @@ cfg =
     , paddleWidth = 100
     , paddleHeight = 15
     , paddleYOffset = 50
-    , paddleSpeed = 250
+    , paddleSpeed = 500
     , ballRadius = 5
     , ballInitialPos = ( 0, 0 )
     , ballInitialVelocity = ( 5, -300 )
@@ -411,11 +411,22 @@ updateBallAndBricks dt model =
             else
                 ( model.paddlePos, model.lives )
 
+        brokenBrickCount =
+            model.bricks
+                |> List.filter .broken
+                |> List.length
+
+        totalBrickCount =
+            List.length model.bricks
+
+        speedUpFactor =
+            ((toFloat brokenBrickCount) / (toFloat totalBrickCount) + 1) ^ 2
+
         newX =
-            x + vx * inSeconds dt
+            x + vx * inSeconds dt * speedUpFactor
 
         newY =
-            y + vy * inSeconds dt
+            y + vy * inSeconds dt * speedUpFactor
     in
         { model
             | ballPos = ( newX, newY )
