@@ -246,14 +246,14 @@ ballRectCollisionSide ( ballX, ballY ) ( rectX, rectY ) ( w, h ) =
             distX ^ 2 + distY ^ 2 <= r ^ 2
     in
         if hit then
-            if ballY <= rectBottom then
-                Bottom
+            if ballX <= rectLeft then
+                Left
+            else if ballX >= rectRight then
+                Right
             else if ballY >= rectTop then
                 Top
-            else if ballX <= rectLeft then
-                Left
             else
-                Right
+                Bottom
         else
             NoCollision
 
@@ -262,16 +262,16 @@ updateVelocity : CollisionSide -> Velocity -> Velocity
 updateVelocity collision ( vx, vy ) =
     case collision of
         Top ->
-            ( vx, -vy )
+            ( vx, abs vy )
 
         Bottom ->
-            ( vx, -vy )
+            ( vx, -(abs vy) )
 
         Left ->
-            ( -vx, vy )
+            ( -(abs vx), vy )
 
         Right ->
-            ( -vx, vy )
+            ( abs vx, vy )
 
         NoCollision ->
             ( vx, vy )
@@ -420,7 +420,7 @@ updateBallAndBricks dt model =
             List.length model.bricks
 
         speedUpFactor =
-            ((toFloat brokenBrickCount) / (toFloat totalBrickCount) + 1) ^ 2
+            ((toFloat brokenBrickCount) / (toFloat totalBrickCount) + 1) ^ 2.5
 
         newX =
             x + vx * inSeconds dt * speedUpFactor
