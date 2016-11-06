@@ -1,7 +1,7 @@
 module App exposing (..)
 
 import Html exposing (text, div)
-import Element exposing (Element, color, layers, centered, leftAligned)
+import Element exposing (Element, color, layers, centered, leftAligned, rightAligned)
 import Collage exposing (Form, toForm, collage, group, rect, filled, outlined, defaultLine, move, circle, scale)
 import Color exposing (Color, rgba, black, white)
 import Text
@@ -64,6 +64,7 @@ type alias Size =
 type alias Brick =
     { pos : Position
     , color : Color
+    , points : Int
     , broken : Bool
     }
 
@@ -88,13 +89,14 @@ type alias Model =
     }
 
 
-b : Int -> Int -> Color -> Brick
-b x y color =
+b : Int -> Int -> Color -> Int -> Brick
+b x y color points =
     Brick
         ( -cfg.gameHalfWidth + (toFloat x) * cfg.brickOffsetX + (fst cfg.brickSize) / 2
         , cfg.gameHalfHeight - (toFloat y) * cfg.brickOffsetY - (snd cfg.brickSize) / 2
         )
         color
+        points
         False
 
 
@@ -103,18 +105,18 @@ paddleInitialPos =
     ( 0, -cfg.gameHalfHeight + cfg.paddleYOffset )
 
 
-brickRow : Int -> Color -> List Brick
-brickRow row color =
-    List.map (\column -> b column row color) [0..15]
+brickRow : Int -> Color -> Int -> List Brick
+brickRow row color points =
+    List.map (\column -> b column row color points) [0..15]
 
 
 initialBricks : List Brick
 initialBricks =
-    (brickRow 3 Color.lightRed)
-        ++ (brickRow 4 Color.lightOrange)
-        ++ (brickRow 5 Color.lightYellow)
-        ++ (brickRow 6 Color.lightGreen)
-        ++ (brickRow 7 Color.lightBlue)
+    (brickRow 3 Color.lightRed 5)
+        ++ (brickRow 4 Color.lightOrange 4)
+        ++ (brickRow 5 Color.lightYellow 3)
+        ++ (brickRow 6 Color.lightGreen 2)
+        ++ (brickRow 7 Color.lightBlue 1)
 
 
 init : ( Model, Cmd Msg )
@@ -492,6 +494,14 @@ update msg model =
         ( newModel, Cmd.none )
 
 
+score : Model -> Int
+score model =
+    model.bricks
+        |> List.filter .broken
+        |> List.map .points
+        |> List.sum
+
+
 background : Form
 background =
     rect (toFloat cfg.gameWidth) (toFloat cfg.gameHeight)
@@ -551,6 +561,17 @@ drawLivesText lives =
         |> move ( -cfg.gameHalfWidth + 20, -cfg.gameHalfHeight + 20 )
 
 
+drawScoreText : Int -> Form
+drawScoreText score =
+    toString score
+        |> Text.fromString
+        |> Text.color white
+        |> Text.height 15
+        |> rightAligned
+        |> toForm
+        |> move ( cfg.gameHalfWidth - 20, -cfg.gameHalfHeight + 20 )
+
+
 drawStateText : GameState -> Form
 drawStateText gameState =
     case gameState of
@@ -604,8 +625,11 @@ view model =
         livesText =
             drawLivesText model.lives
 
+        scoreText =
+            drawScoreText (score model)
+
         elements =
-            [ background, paddle, ball, stateText, livesText ] ++ bricks
+            [ background, paddle, ball, stateText, livesText, scoreText ] ++ bricks
     in
         div []
             [ displayFullScreen model.windowSize (group elements) |> Element.toHtml
