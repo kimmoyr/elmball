@@ -92,8 +92,8 @@ type alias Model =
 b : Int -> Int -> Color -> Int -> Brick
 b x y color points =
     Brick
-        ( -cfg.gameHalfWidth + (toFloat x) * cfg.brickOffsetX + (fst cfg.brickSize) / 2
-        , cfg.gameHalfHeight - (toFloat y) * cfg.brickOffsetY - (snd cfg.brickSize) / 2
+        ( -cfg.gameHalfWidth + (toFloat x) * cfg.brickOffsetX + (Tuple.first cfg.brickSize) / 2
+        , cfg.gameHalfHeight - (toFloat y) * cfg.brickOffsetY - (Tuple.second cfg.brickSize) / 2
         )
         color
         points
@@ -107,7 +107,7 @@ paddleInitialPos =
 
 brickRow : Int -> Color -> Int -> List Brick
 brickRow row color points =
-    List.map (\column -> b column row color points) [0..15]
+    List.map (\column -> b column row color points) (List.range 0 15)
 
 
 initialBricks : List Brick
@@ -131,7 +131,7 @@ init =
       , lives = cfg.lives
       , bricks = initialBricks
       }
-    , Task.perform (always NoOp) WindowSize Window.size
+    , Task.perform WindowSize Window.size
     )
 
 
@@ -300,12 +300,12 @@ updatePaddlePos dt model =
             cfg.gameHalfWidth - cfg.paddleWidth / 2
 
         newPaddleX =
-            fst model.paddlePos
+            Tuple.first model.paddlePos
                 + speed
                 * inSeconds dt
                 |> clamp leftLimit rightLimit
     in
-        { model | paddlePos = ( newPaddleX, snd model.paddlePos ) }
+        { model | paddlePos = ( newPaddleX, Tuple.second model.paddlePos ) }
 
 
 hitBrick : Position -> Brick -> ( Brick, CollisionSide )
@@ -358,25 +358,25 @@ updateBallAndBricks dt model =
             isBallTouchingRect model.ballPos model.paddlePos ( cfg.paddleWidth, cfg.paddleHeight )
 
         touchingCeiling =
-            (snd model.ballPos) + cfg.ballRadius / 2 >= cfg.gameHalfHeight
+            (Tuple.second model.ballPos) + cfg.ballRadius / 2 >= cfg.gameHalfHeight
 
         touchingLeftWall =
-            (fst model.ballPos) - cfg.ballRadius / 2 <= -cfg.gameHalfWidth
+            (Tuple.first model.ballPos) - cfg.ballRadius / 2 <= -cfg.gameHalfWidth
 
         touchingRightWall =
-            (fst model.ballPos) + cfg.ballRadius / 2 >= cfg.gameHalfWidth
+            (Tuple.first model.ballPos) + cfg.ballRadius / 2 >= cfg.gameHalfWidth
 
         ballLost =
-            snd model.ballPos < -cfg.gameHalfHeight
+            Tuple.second model.ballPos < -cfg.gameHalfHeight
 
         brickHits =
             hitBricks model.ballPos model.bricks
 
         newBricks =
-            List.map fst brickHits
+            List.map Tuple.first brickHits
 
         brickCollisionSides =
-            List.map snd brickHits
+            List.map Tuple.second brickHits
                 |> List.filter (\side -> side /= NoCollision)
                 |> List.Extra.uniqueBy collisionSideToInt
 
